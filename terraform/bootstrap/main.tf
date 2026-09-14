@@ -78,12 +78,23 @@ resource "aws_iam_role" "github_actions" {
 
 # Scoped down from AdministratorAccess: this repo is public, and a fork's PR
 # workflow (once approved to run) executes with these permissions via OIDC.
-# EC2/RDS stay broad because AWS's IAM model doesn't support fine-grained
-# resource-level permissions for most of their actions — worst case there is
-# operational/cost damage, not account takeover. IAM is scoped tightly and
-# named-resource-only, because that's the actual privilege-escalation vector:
-# this policy cannot touch the OIDC provider or this CI role itself, so a
-# compromised PR can't grant itself more power than it already has.
+# EC2/RDS actions that CREATE a resource stay broad (the resource doesn't
+# exist yet, so it has no tag to condition on). Actions that MUTATE or DELETE
+# an existing resource are restricted to resources tagged Project=de-project
+# — this contains blast radius to just this project's own resources and
+# blocks lateral movement to anything else in the account.
+#
+# Caveat, stated plainly: this does NOT fully close the risk of a compromised
+# CI run reconfiguring THIS project's own security group (e.g. opening RDS to
+# 0.0.0.0/0) and reading the RDS password out of Terraform state (which
+# necessarily holds it, in plaintext, for Terraform to function) — that
+# specific resource is tagged de-project, so it's exactly the resource this
+# role is meant to manage. The real backstop for that scenario is GitHub's
+# required-approval gate on fork PR workflow runs (see repo Settings ->
+# Actions -> General), not IAM. IAM is scoped tightly and named-resource-only
+# for the actual privilege-escalation vector (IAM itself): this policy cannot
+# touch the OIDC provider or this CI role, so a compromised PR can't grant
+# itself more power than it already has.
 resource "aws_iam_policy" "github_actions_scoped" {
   name = "de-project-github-actions-policy"
 
@@ -91,16 +102,73 @@ resource "aws_iam_policy" "github_actions_scoped" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "EC2Broad"
-        Effect   = "Allow"
-        Action   = "ec2:*"
+        Sid    = "EC2ReadAndCreate"
+        Effect = "Allow"
+        Action = [
+          "ec2:Describe*",
+          "ec2:RunInstances",
+          "ec2:CreateSecurityGroup",
+          "ec2:CreateKeyPair",
+          "ec2:ImportKeyPair",
+          "ec2:CreateVolume",
+          "ec2:CreateTags",
+        ]
         Resource = "*"
       },
       {
-        Sid      = "RDSBroad"
-        Effect   = "Allow"
-        Action   = "rds:*"
+        Sid    = "EC2MutateExistingTaggedOnly"
+        Effect = "Allow"
+        Action = [
+          "ec2:TerminateInstances",
+          "ec2:StopInstances",
+          "ec2:StartInstances",
+          "ec2:ModifyInstanceAttribute",
+          "ec2:ModifyInstanceCreditSpecification",
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:AuthorizeSecurityGroupEgress",
+          "ec2:RevokeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupEgress",
+          "ec2:DeleteSecurityGroup",
+          "ec2:DeleteKeyPair",
+          "ec2:DeleteVolume",
+          "ec2:AttachVolume",
+          "ec2:DetachVolume",
+          "ec2:DeleteTags",
+        ]
         Resource = "*"
+        Condition = {
+          StringEquals = {
+            "aws:ResourceTag/Project" = "de-project"
+          }
+        }
+      },
+      {
+        Sid    = "RDSReadAndCreate"
+        Effect = "Allow"
+        Action = [
+          "rds:Describe*",
+          "rds:CreateDBInstance",
+          "rds:AddTagsToResource",
+          "rds:ListTagsForResource",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "RDSMutateExistingTaggedOnly"
+        Effect = "Allow"
+        Action = [
+          "rds:ModifyDBInstance",
+          "rds:DeleteDBInstance",
+          "rds:StopDBInstance",
+          "rds:StartDBInstance",
+          "rds:RemoveTagsFromResource",
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "aws:ResourceTag/Project" = "de-project"
+          }
+        }
       },
       {
         Sid      = "S3ProjectBuckets"
