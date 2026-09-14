@@ -57,6 +57,36 @@ resource "aws_iam_role_policy" "airflow_ec2_s3" {
   })
 }
 
+resource "aws_iam_role_policy" "airflow_ec2_emr" {
+  name = "${var.project_name}-airflow-ec2-emr-access"
+  role = aws_iam_role.airflow_ec2.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "SubmitAndMonitorEMRJobs"
+        Effect = "Allow"
+        Action = [
+          "emr-serverless:GetApplication",
+          "emr-serverless:StartJobRun",
+          "emr-serverless:GetJobRun",
+          "emr-serverless:CancelJobRun",
+        ]
+        Resource = aws_emrserverless_application.spark.arn
+      },
+      {
+        # Airflow (via this role) needs to hand the job-execution role to
+        # EMR Serverless when starting a run — not to assume it itself.
+        Sid      = "PassEMRJobExecutionRole"
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
+        Resource = aws_iam_role.emr_job.arn
+      },
+    ]
+  })
+}
+
 resource "aws_iam_instance_profile" "airflow_ec2" {
   name = "${var.project_name}-airflow-ec2-profile"
   role = aws_iam_role.airflow_ec2.name
