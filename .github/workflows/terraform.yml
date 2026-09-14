@@ -2,12 +2,8 @@ name: Terraform
 
 on:
   pull_request:
-    paths:
-      - "terraform/**"
   push:
     branches: [main]
-    paths:
-      - "terraform/**"
 
 permissions:
   id-token: write   # required to request the OIDC token
