@@ -17,6 +17,11 @@ x-airflow-common: &airflow-common
     AIRFLOW_VAR_S3_PROCESSED_BUCKET: ${S3_PROCESSED_BUCKET}
     AIRFLOW_VAR_EMR_APPLICATION_ID: ${EMR_APPLICATION_ID}
     AIRFLOW_VAR_EMR_JOB_ROLE_ARN: ${EMR_JOB_ROLE_ARN}
+    # aws_conn_id=None (used throughout the DAG) gets credentials from the
+    # EC2 instance's IAM role automatically via boto3's default chain, but
+    # that chain has no source for the REGION — S3 happened to tolerate
+    # this with an implicit fallback, EMR Serverless does not.
+    AWS_DEFAULT_REGION: us-east-1
   volumes:
     - ../dags:/opt/airflow/dags
     - ./data:/opt/airflow/data
