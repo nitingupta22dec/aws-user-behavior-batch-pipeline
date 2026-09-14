@@ -42,7 +42,10 @@ services:
     entrypoint: /bin/bash
     command:
       - -c
-      - "mkdir -v -p /opt/airflow/{logs,dags,plugins,config}"
+      - |
+        mkdir -v -p /opt/airflow/{logs,dags,plugins,config}
+        /entrypoint airflow version
+        chown -R "${AIRFLOW_UID}:0" /opt/airflow/{logs,dags,plugins,config}
     environment:
       <<: *airflow-common-env
       _AIRFLOW_DB_MIGRATE: 'true'
