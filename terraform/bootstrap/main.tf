@@ -205,7 +205,14 @@ resource "aws_iam_policy" "github_actions_scoped" {
         Resource = [
           "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/de-project-airflow-*",
           "arn:aws:iam::${data.aws_caller_identity.current.account_id}:instance-profile/de-project-airflow-*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/de-project-emr-*",
         ]
+      },
+      {
+        Sid      = "EMRServerless"
+        Effect   = "Allow"
+        Action   = "emr-serverless:*"
+        Resource = "*"
       },
     ]
   })
