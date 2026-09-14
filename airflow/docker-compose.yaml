@@ -12,8 +12,11 @@ x-airflow-common: &airflow-common
     AIRFLOW__API_AUTH__JWT_ISSUER: de-project-airflow
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     AIRFLOW__WEBSERVER__SECRET_KEY: ${WEBSERVER_SECRET_KEY}
+    AIRFLOW_CONN_POSTGRES_DEFAULT: ${AIRFLOW_CONN_POSTGRES_DEFAULT}
+    AIRFLOW_VAR_S3_RAW_BUCKET: ${S3_RAW_BUCKET}
   volumes:
     - ../dags:/opt/airflow/dags
+    - ./data:/opt/airflow/data
     - ./logs:/opt/airflow/logs
     - ./plugins:/opt/airflow/plugins
     - ./config:/opt/airflow/config

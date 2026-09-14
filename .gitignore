@@ -9,3 +9,4 @@ crash.*.log
 airflow/.env
 airflow/logs/
 airflow/plugins/
+airflow/data/
