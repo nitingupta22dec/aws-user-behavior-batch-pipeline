@@ -38,3 +38,8 @@ variable "ssh_public_key" {
   description = "SSH public key content to authorize on the EC2 instance (not a path — CI has no access to local files)"
   type        = string
 }
+
+variable "admin_cidr" {
+  description = "CIDR block (your IP as x.x.x.x/32) allowed to SSH/psql/reach the Airflow UI. Set explicitly — apply now runs in CI, which has no fixed IP of its own to auto-detect."
+  type        = string
+}
