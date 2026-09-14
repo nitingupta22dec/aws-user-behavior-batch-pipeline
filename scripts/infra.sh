@@ -56,7 +56,7 @@ case "$1" in
 
   status)
     aws ec2 describe-instances --profile "$PROFILE" --region "$REGION" \
-      --filters "Name=tag:Name,Values=$EC2_NAME_TAG" \
+      --filters "Name=tag:Name,Values=$EC2_NAME_TAG" "Name=instance-state-name,Values=running,stopped,stopping,pending" \
       --query "Reservations[0].Instances[0].[InstanceId,State.Name,PublicIpAddress]" \
       --output table
     aws rds describe-db-instances --profile "$PROFILE" --region "$REGION" \
