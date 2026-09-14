@@ -16,6 +16,7 @@ permissions:
 
 env:
   TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
+  TF_VAR_admin_cidr: ${{ secrets.ADMIN_CIDR }}
 
 jobs:
   plan:

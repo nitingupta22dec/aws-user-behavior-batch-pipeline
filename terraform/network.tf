@@ -10,15 +10,6 @@ data "aws_subnets" "default" {
   }
 }
 
-# Your current public IP, so security groups only ever open access to you.
-data "http" "my_ip" {
-  url = "https://checkip.amazonaws.com"
-}
-
-locals {
-  my_ip_cidr = "${trimspace(data.http.my_ip.response_body)}/32"
-}
-
 resource "aws_security_group" "airflow_ec2" {
   name        = "${var.project_name}-airflow-ec2-sg"
   description = "Airflow EC2 host: SSH + web UI from my IP only"
@@ -29,7 +20,7 @@ resource "aws_security_group" "airflow_ec2" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [local.my_ip_cidr]
+    cidr_blocks = [var.admin_cidr]
   }
 
   ingress {
@@ -37,7 +28,7 @@ resource "aws_security_group" "airflow_ec2" {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = [local.my_ip_cidr]
+    cidr_blocks = [var.admin_cidr]
   }
 
   egress {
@@ -62,7 +53,7 @@ resource "aws_security_group" "rds" {
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
-    cidr_blocks = [local.my_ip_cidr]
+    cidr_blocks = [var.admin_cidr]
   }
 
   ingress {

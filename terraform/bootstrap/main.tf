@@ -65,20 +65,86 @@ resource "aws_iam_role" "github_actions" {
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = {
-          "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          "token.actions.githubusercontent.com:aud"        = "sts.amazonaws.com"
+          "token.actions.githubusercontent.com:repository" = "nitingupta22dec/aws-user-behavior-batch-pipeline"
         }
         StringLike = {
-          "token.actions.githubusercontent.com:sub" = "repo:nitingupta22dec/aws-user-behavior-batch-pipeline:*"
+          "token.actions.githubusercontent.com:sub" = "repo:nitingupta22dec@*/aws-user-behavior-batch-pipeline@*:*"
         }
       }
     }]
   })
 }
 
-# Broad-ish for a learning project; note this is where you'd tighten scope in a real org.
-resource "aws_iam_role_policy_attachment" "github_actions_admin" {
+# Scoped down from AdministratorAccess: this repo is public, and a fork's PR
+# workflow (once approved to run) executes with these permissions via OIDC.
+# EC2/RDS stay broad because AWS's IAM model doesn't support fine-grained
+# resource-level permissions for most of their actions — worst case there is
+# operational/cost damage, not account takeover. IAM is scoped tightly and
+# named-resource-only, because that's the actual privilege-escalation vector:
+# this policy cannot touch the OIDC provider or this CI role itself, so a
+# compromised PR can't grant itself more power than it already has.
+resource "aws_iam_policy" "github_actions_scoped" {
+  name = "de-project-github-actions-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "EC2Broad"
+        Effect   = "Allow"
+        Action   = "ec2:*"
+        Resource = "*"
+      },
+      {
+        Sid      = "RDSBroad"
+        Effect   = "Allow"
+        Action   = "rds:*"
+        Resource = "*"
+      },
+      {
+        Sid      = "S3ProjectBuckets"
+        Effect   = "Allow"
+        Action   = "s3:*"
+        Resource = [
+          "arn:aws:s3:::de-project-*",
+          "arn:aws:s3:::de-project-*/*",
+        ]
+      },
+      {
+        Sid    = "IAMScopedToAppRoleOnly"
+        Effect = "Allow"
+        Action = [
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:GetRole",
+          "iam:TagRole",
+          "iam:UntagRole",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy",
+          "iam:GetRolePolicy",
+          "iam:ListRolePolicies",
+          "iam:ListInstanceProfilesForRole",
+          "iam:CreateInstanceProfile",
+          "iam:DeleteInstanceProfile",
+          "iam:GetInstanceProfile",
+          "iam:TagInstanceProfile",
+          "iam:AddRoleToInstanceProfile",
+          "iam:RemoveRoleFromInstanceProfile",
+          "iam:PassRole",
+        ]
+        Resource = [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/de-project-airflow-*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:instance-profile/de-project-airflow-*",
+        ]
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "github_actions_scoped" {
   role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+  policy_arn = aws_iam_policy.github_actions_scoped.arn
 }
 
 output "tf_state_bucket" {
