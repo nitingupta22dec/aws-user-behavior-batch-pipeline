@@ -73,7 +73,13 @@ resource "aws_iam_role_policy" "airflow_ec2_emr" {
           "emr-serverless:GetJobRun",
           "emr-serverless:CancelJobRun",
         ]
-        Resource = aws_emrserverless_application.spark.arn
+        # GetApplication/StartJobRun act on the application itself;
+        # GetJobRun/CancelJobRun act on the job run, a child resource with
+        # its own ARN path nested under the application.
+        Resource = [
+          aws_emrserverless_application.spark.arn,
+          "${aws_emrserverless_application.spark.arn}/jobruns/*",
+        ]
       },
       {
         # Airflow (via this role) needs to hand the job-execution role to
