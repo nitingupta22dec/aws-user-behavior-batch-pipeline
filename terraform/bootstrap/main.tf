@@ -214,6 +214,19 @@ resource "aws_iam_policy" "github_actions_scoped" {
         Action   = "emr-serverless:*"
         Resource = "*"
       },
+      {
+        # AWS auto-creates this service-linked role behind the scenes the
+        # first time an EMR Serverless application is created in the account.
+        Sid      = "EMRServerlessSLR"
+        Effect   = "Allow"
+        Action   = "iam:CreateServiceLinkedRole"
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/ops.emr-serverless.amazonaws.com/*"
+        Condition = {
+          StringEquals = {
+            "iam:AWSServiceName" = "ops.emr-serverless.amazonaws.com"
+          }
+        }
+      },
     ]
   })
 }
