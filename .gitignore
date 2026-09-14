@@ -5,3 +5,7 @@
 crash.log
 crash.*.log
 .DS_Store
+
+airflow/.env
+airflow/logs/
+airflow/plugins/
