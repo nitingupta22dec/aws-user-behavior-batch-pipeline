@@ -76,6 +76,16 @@ resource "aws_instance" "airflow" {
     encrypted   = true
   }
 
+  # t3.small is burstable: it earns CPU credits and hard-throttles to 20%
+  # baseline once they're exhausted. "unlimited" lets it burst past that
+  # (billed per vCPU-hour for the overage) instead of grinding to a halt —
+  # hit this exact wall running a container rebuild + a 541k-row extraction
+  # back to back. No AWS-side spending cap on this; bounded instead by our
+  # existing Budget alerts and the habit of pausing EC2 between sessions.
+  credit_specification {
+    cpu_credits = "unlimited"
+  }
+
   tags = {
     Name = "${var.project_name}-airflow"
   }
