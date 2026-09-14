@@ -2,14 +2,18 @@ from datetime import datetime
 
 from airflow.sdk import DAG
 from airflow.models import Variable
+from airflow.providers.amazon.aws.operators.emr import EmrServerlessStartJobOperator
 from airflow.providers.amazon.aws.transfers.local_to_s3 import LocalFilesystemToS3Operator
 from airflow.providers.amazon.aws.transfers.sql_to_s3 import SqlToS3Operator
 
 RAW_BUCKET = Variable.get("s3_raw_bucket")
+PROCESSED_BUCKET = Variable.get("s3_processed_bucket")
+EMR_APPLICATION_ID = Variable.get("emr_application_id")
+EMR_JOB_ROLE_ARN = Variable.get("emr_job_role_arn")
 
 with DAG(
     dag_id="user_analytics_extract",
-    description="Extract user_purchase (RDS) and movie_review (vendor CSV) into S3 raw zone",
+    description="Extract user_purchase (RDS) and movie_review (vendor CSV), classify reviews on EMR Serverless",
     start_date=datetime(2026, 1, 1),
     schedule=None,  # manually triggered for now; will schedule once the full pipeline exists
     catchup=False,
@@ -33,3 +37,26 @@ with DAG(
         aws_conn_id=None,
         replace=True,
     )
+
+    classify_reviews = EmrServerlessStartJobOperator(
+        task_id="classify_reviews",
+        application_id=EMR_APPLICATION_ID,
+        execution_role_arn=EMR_JOB_ROLE_ARN,
+        job_driver={
+            "sparkSubmit": {
+                "entryPoint": f"s3://{RAW_BUCKET}/scripts/classify_reviews.py",
+                "entryPointArguments": [RAW_BUCKET, PROCESSED_BUCKET],
+                "sparkSubmitParameters": (
+                    "--conf spark.executor.cores=1 "
+                    "--conf spark.executor.memory=2g "
+                    "--conf spark.driver.cores=1 "
+                    "--conf spark.driver.memory=2g"
+                ),
+            }
+        },
+        aws_conn_id=None,
+        waiter_delay=15,
+        waiter_max_attempts=60,
+    )
+
+    movie_review_to_s3 >> classify_reviews
