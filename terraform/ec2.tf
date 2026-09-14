@@ -15,7 +15,7 @@ data "aws_ami" "al2023" {
 
 resource "aws_key_pair" "airflow" {
   key_name   = "${var.project_name}-key"
-  public_key = file(pathexpand(var.ssh_public_key_path))
+  public_key = var.ssh_public_key
 }
 
 # IAM role so the EC2 host (and Airflow on it) can reach S3 via an instance

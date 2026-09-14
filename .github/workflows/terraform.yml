@@ -14,6 +14,9 @@ permissions:
   contents: read
   pull-requests: write  # required to comment the plan output on the PR
 
+env:
+  TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
+
 jobs:
   plan:
     if: github.event_name == 'pull_request'

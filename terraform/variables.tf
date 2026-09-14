@@ -34,8 +34,7 @@ variable "db_username" {
   default     = "deproject_admin"
 }
 
-variable "ssh_public_key_path" {
-  description = "Path to the local SSH public key to authorize on the EC2 instance"
+variable "ssh_public_key" {
+  description = "SSH public key content to authorize on the EC2 instance (not a path — CI has no access to local files)"
   type        = string
-  default     = "~/.ssh/id_ed25519.pub"
 }
