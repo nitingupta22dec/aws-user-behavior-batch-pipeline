@@ -124,6 +124,7 @@ resource "aws_iam_policy" "github_actions_scoped" {
           "iam:DeleteRolePolicy",
           "iam:GetRolePolicy",
           "iam:ListRolePolicies",
+          "iam:ListAttachedRolePolicies",
           "iam:ListInstanceProfilesForRole",
           "iam:CreateInstanceProfile",
           "iam:DeleteInstanceProfile",
