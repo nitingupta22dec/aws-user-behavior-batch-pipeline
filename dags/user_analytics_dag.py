@@ -1,7 +1,9 @@
+import io
 from datetime import datetime
 
-from airflow.sdk import DAG
+from airflow.sdk import DAG, task
 from airflow.models import Variable
+from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.operators.emr import EmrServerlessStartJobOperator
 from airflow.providers.amazon.aws.transfers.local_to_s3 import LocalFilesystemToS3Operator
 from airflow.providers.amazon.aws.transfers.sql_to_s3 import SqlToS3Operator
@@ -59,4 +61,33 @@ with DAG(
         waiter_max_attempts=60,
     )
 
-    movie_review_to_s3 >> classify_reviews
+    @task
+    def validate_processed_reviews():
+        import pandas as pd
+        from cuallee import Check, CheckLevel
+
+        hook = S3Hook(aws_conn_id=None)
+        keys = hook.list_keys(bucket_name=PROCESSED_BUCKET, prefix="processed/movie_review/")
+        parquet_keys = [k for k in keys if k.endswith(".parquet")]
+        if not parquet_keys:
+            raise ValueError(
+                "No Parquet files found under processed/movie_review/ — did classify_reviews run?"
+            )
+
+        frames = []
+        for key in parquet_keys:
+            obj = hook.get_key(key, bucket_name=PROCESSED_BUCKET)
+            frames.append(pd.read_parquet(io.BytesIO(obj.get()["Body"].read())))
+        df = pd.concat(frames, ignore_index=True)
+
+        check = Check(CheckLevel.ERROR, "movie_review_quality")
+        check.is_complete("cid")
+        check.is_complete("positive_review")
+        check.is_unique("cid")
+        result = check.validate(df)
+
+        failed = result[result["status"] != "PASS"]
+        if not failed.empty:
+            raise ValueError(f"Data quality checks failed:\n{failed.to_string()}")
+
+    movie_review_to_s3 >> classify_reviews >> validate_processed_reviews()
