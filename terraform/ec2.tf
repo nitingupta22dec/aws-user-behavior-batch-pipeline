@@ -125,4 +125,14 @@ resource "aws_instance" "airflow" {
   tags = {
     Name = "${var.project_name}-airflow"
   }
+
+  # data.aws_ami.al2023 uses most_recent = true, so it re-resolves to
+  # whatever AMI is newest on every apply. Changing `ami` forces instance
+  # replacement — without this, an unrelated PR (that never touches EC2)
+  # can silently destroy and recreate this instance the moment AWS ships a
+  # new AMI, exactly as happened once already. Bump the AMI deliberately by
+  # temporarily removing this line, not by surprise.
+  lifecycle {
+    ignore_changes = [ami]
+  }
 }
